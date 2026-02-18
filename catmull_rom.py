@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def catrom(t, y):
     """
     Perform Catmull-Rom interpolation on a regularly sampled series.
@@ -19,61 +18,57 @@ def catrom(t, y):
         The interpolated function, f(t)
     """
 
-    t1, k = np.modf(t)
-    k = k.astype(int)
-    k = k.flatten()
-    y = y.flatten()
+    #Decimal and Integer Parts of t
+    t_dec, t_low = np.modf(t)
+    t_low = t_low.astype(int)
     N = len(y)
 
-    left = k < 1
-    middle = (k >= 1) & (k <= N - 3)
-    right = k > N - 3
+    #Bounds for Left Case, Middle Case, Right Case
+    left = t_low < 1
+    middle = (t_low >= 1) & (t_low <= N - 3)
+    right = t_low > N - 3
 
     yinterp = np.empty_like(t, dtype=float)
 
-    a = -0.25*y[0] + 0.5*y[1] - 0.25*y[2]
-    b = y[0] - 2*y[1] + y[2]
-    c = -1.75*y[0] + 2.5*y[1] - 0.75*y[2]
-    d = y[0]
-    yinterp[left] = a*t1[left]**3 + b*t1[left]**2 + c*t1[left] + d
+    #Left Case
+    t_il = t_low[left]
+    t_dl = t_dec[left]
+    m1 = (y[t_il + 1] - y[t_il])
+    m2 = (y[t_il + 2] - y[t_il]) / 2 
+    yinterp[left] = (
+        (2*t_dl**3 - 3*t_dl**2 + 1) * y[t_il]
+        + (t_dl**3 - 2*t_dl**2 + t_dl) * m1
+        + (-2*t_dl**3 + 3*t_dl**2) * y[t_il + 1]
+        + (t_dl**3 - t_dl**2) * m2
+    )
 
-    km = k[middle]
-    tm = t1[middle]
-    m1 = (y[km + 1] - y[km - 1]) / 2
-    m2 = (y[km + 2] - y[km]) / 2
+    #Middle Case --> Traditional Catmull-Rom Formula
+    t_im = t_low[middle]
+    t_dm = t_dec[middle]
+    m1 = (y[t_im + 1] - y[t_im - 1]) / 2
+    m2 = (y[t_im + 2] - y[t_im]) / 2
 
     yinterp[middle] = (
-        (2*tm**3 - 3*tm**2 + 1) * y[km]
-        + (tm**3 - 2*tm**2 + tm) * m1
-        + (-2*tm**3 + 3*tm**2) * y[km + 1]
-        + (tm**3 - tm**2) * m2
+        (2*t_dm**3 - 3*t_dm**2 + 1) * y[t_im]
+        + (t_dm**3 - 2*t_dm**2 + t_dm) * m1
+        + (-2*t_dm**3 + 3*t_dm**2) * y[t_im + 1]
+        + (t_dm**3 - t_dm**2) * m2
     )
 
-    tr = t1[right]
-    #Check if right edge solution is correct
-    a =  0.25*y[-1] - 0.5*y[-2] + 0.25*y[-3]
-    b =  y[-1] - 2*y[-2] + y[-3]
-    c =  1.75*y[-1] - 2.5*y[-2] + 0.75*y[-3]
-    d =  y[-1]
+    #Right Case
+    t_ir = t_low[right]
+    t_dr = t_dec[right]
+    m1 = (y[t_ir + 1] - y[t_ir - 1])/2
+    m2 = (y[t_ir + 1] - y[t_ir]) 
     yinterp[right] = (
-        a*tr**3 +
-        b*tr**2 +
-        c*tr +
-        d
+        (2*t_dr**3 - 3*t_dr**2 + 1) * y[t_ir]
+        + (t_dr**3 - 2*t_dr**2 + t_dr) * m1
+        + (-2*t_dr**3 + 3*t_dr**2) * y[t_ir + 1]
+        + (t_dr**3 - t_dr**2) * m2
     )
+
+    #For When Point to Interpolate Over is Given On Array
+    given = (t_dec == 0)
+    yinterp[given] = (y[t_low[given]])
+    
     return yinterp 
-
-
-if __name__ == '__main__':
-    x = np.arange(0, 100)
-
-    def f(t):
-        return t**3 + 2* t**2 
-
-    y = f(x)
-
-    t = np.asarray([0.8, 0.9, 1.2, 3.5, 4.7, 5.9, 96.5, 99.1])
-    yinterp = catrom(t, y)
-
-    print(f'f({t}) == {f(t)}')
-    print(f'f({t}) ~= {yinterp}')
